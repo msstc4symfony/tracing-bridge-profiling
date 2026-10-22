@@ -1,0 +1,32 @@
+name: Code Quality Checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - LICENSE
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - LICENSE
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  standard:
+    uses: msstc4symfony/bundle-standard/.github/workflows/php-bundle.yml@v3.2.0
+    with:
+      slug: msstc4symfony/tracing-bridge-profiling
+      # Measured covered MSI 100 % on 2026-10-22 UTC, minus a margin for noise.
+      infection-min-msi: 97
+      infection-min-covered-msi: 97
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
