@@ -23,6 +23,9 @@ use WeakMap;
  */
 final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInterface
 {
+    // DetachedSpanFactoryInterface::DETACHED of profiling-bundle 2.2, read by key so that 2.1 needs no upgrade.
+    private const DETACHED_KEY = 'profiling_detached';
+
     /** @var WeakMap<TraceContext, TraceContext> the trace around each open span this processor opened */
     private WeakMap $open;
 
@@ -43,7 +46,7 @@ final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInt
     #[Override]
     public function process(SpanInterface $span): SpanInterface
     {
-        if (!$span->isRecorded() || $this->isUnitSpan($span->getMessage())) {
+        if (!$span->isRecorded() || $this->isUnitSpan($span->getMessage()) || $this->isDetached($span)) {
             return $span;
         }
 
@@ -91,6 +94,14 @@ final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInt
         }
 
         return $trace;
+    }
+
+    /**
+     * A detached span ends after spans opened meanwhile: its trace span would stay current over them.
+     */
+    private function isDetached(SpanInterface $span): bool
+    {
+        return ($span->getContext()[self::DETACHED_KEY] ?? false) === true;
     }
 
     private function isUnitSpan(string $message): bool

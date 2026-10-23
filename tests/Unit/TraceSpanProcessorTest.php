@@ -266,6 +266,38 @@ final class TraceSpanProcessorTest extends TestCase
         }
     }
 
+    public function testADetachedSpanOpensNoTraceSpan(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $outer = $holder->current();
+        $detached = new Span('http GET api.example.com', ['profiling_detached' => true]);
+
+        self::assertSame($detached, $this->processor($holder)->process($detached));
+        self::assertSame($outer, $holder->current());
+    }
+
+    #[DataProvider('notDetachedMarkers')]
+    public function testOnlyATrueMarkerDetachesASpan(mixed $marker): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $outer = $holder->current();
+
+        $span = $this->processor($holder)->process(new Span('sql select', ['profiling_detached' => $marker]));
+
+        self::assertInstanceOf(TracedSpan::class, $span);
+        self::assertNotSame($outer, $holder->current());
+    }
+
+    /**
+     * @return iterable<string, array{bool|int|string}>
+     */
+    public static function notDetachedMarkers(): iterable
+    {
+        yield 'false' => [false];
+        yield 'one' => [1];
+        yield 'string true' => ['true'];
+    }
+
     public function testAFilteredSpanOpensNoTraceSpan(): void
     {
         $holder = new InMemoryTraceHolder();

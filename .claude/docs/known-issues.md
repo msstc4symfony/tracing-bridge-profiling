@@ -10,9 +10,9 @@
   `EndableAtInterface`, `TracedSpan` его делегирует; мост требует profiling ^2.1.
 - **FQCN `TracingBridgeLogicBundle` — строкой** в `DependencyInjection/UnitSpanPrefixes` (класс не в зависимостях):
   при переименовании в tracing-bridge-logic префикс `action ` молча перестанет добавляться — сверять при его мажорах.
-- **`composer-ci.lock` не коммитится** (как у metrics-bridge-healthcheck): job `setup` CI ставит зависимости по
-  `composer-ci.json`; локально `roave/security-advisories` конфликтует с PHP 8.4.17 — для работы `composer-local.json`
-  (path-репозиторий `../profiling-bundle`, без roave).
+- **`composer-ci.lock` в git**, как у остальных пакетов семейства: job `setup` CI ставит зависимости по нему. Локально
+  `roave/security-advisories` конфликтует с PHP 8.4.17 — lock обновлять с `--ignore-platform-req=php`, работать через
+  `composer-local.json`.
 - **Worker в тестах**: `kernel.reset` после каждого сообщения очищает Monolog `TestHandler` и in-memory транспорт
   Messenger — тест worker'а пишет в `tests/Fixtures/CollectingHandler` и запускает `messenger:consume --limit=1` на
   каждое сообщение.
@@ -23,6 +23,9 @@
 - **Изменения контекста внутри span отбрасываются** при его закрытии, если это контекст моста. Общий держатель не
   годится для Fiber/async, как и сам tracing-bundle.
 - **Span'ы нигде не экспортируются**: дерево восстанавливается по `span_id`/`parent_span_id` в логах.
+
+- **Ключ `profiling_detached` — строкой** (как `DetachedSpanFactoryInterface::DETACHED` profiling-bundle 2.2): мост
+  работает с profiling ^2.1 без апгрейда; при смене ключа в profiling связь оборвётся молча — сверять при его мажорах.
 
 ## Семейство (Symfony, CI)
 

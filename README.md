@@ -60,6 +60,8 @@ of the previous trace: its `trace_span_id` names a span of that trace.
 Left as they are:
 
 - spans a decision maker filtered out (profiling's `NullSpan`): they open no trace span;
+- detached spans (context `profiling_detached`, set by profiling-bundle 2.2 on its HTTP request spans): they end after
+  the spans opened meanwhile, so the request runs in the trace span around it;
 - unit-of-work spans, by message prefix: `request `, `cli command ` and `message ` of profiling-bundle, which
   tracing-bundle already gives their own span — and the command and message spans open before tracing-bundle
   switches to the unit's trace; `action ` of [profiling-bridge-logic](https://github.com/msstc4symfony/profiling-bridge-logic)

@@ -31,7 +31,9 @@
   (Action, priority 600 снаружи profiling-bridge-logic 500), и `extra` их записей уже верный. Второй span для
   `action …` был бы дублем. Плюс по таймингу: span консоли (4096) и сообщения (Received -1024) открываются ДО того, как
   tracing-bundle ставит trace единицы (100 / в middleware шины), — child от них ушёл бы в чужой trace.
-- `NullSpan` (отфильтрован decision maker'ом) — span трейса не открывает.
+- `NullSpan` (отфильтрован decision maker'ом) и detached span (`profiling_detached` в контексте, profiling 2.2: HTTP;
+  ключ читается строкой, чтобы мосту хватало profiling ^2.1) — span трейса не открывают: detached закрывается позже
+  открытых после него span'ов, его trace span висел бы над ними.
 - Только публичный API tracing-bundle 2.0 (`TraceContextHolderInterface`, `TraceContext`) и profiling-bundle 2.1
   (`CreateSpanProcessorInterface`, `SpanInterface`, `EndableAtInterface`). Сервис приватный, id = FQCN, `@internal`.
 - deptrac: код в Infrastructure и DependencyInjection; BundleRoot → DependencyInjection, от Infrastructure не зависит.
