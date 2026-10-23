@@ -112,6 +112,10 @@ final class KernelBridgeTest extends TestCase
 
     public function testEachMessageOfAWorkerTracesItsSpansInItsOwnTrace(): void
     {
+        if (!interface_exists(MessageBusInterface::class)) {
+            self::markTestSkipped('symfony/messenger is not installed');
+        }
+
         $bus = $this->container()->get(MessageBusInterface::class);
         self::assertInstanceOf(MessageBusInterface::class, $bus);
         $application = new Application($this->kernel);

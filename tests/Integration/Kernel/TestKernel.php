@@ -16,6 +16,7 @@ use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 final class TestKernel extends Kernel
 {
@@ -64,13 +65,16 @@ final class TestKernel extends Kernel
             'test' => true,
             // The php_errors logger installs a global handler that outlives the kernel and trips failOnRisky.
             'php_errors' => ['log' => false],
-            'messenger' => [
+        ]);
+        // The job without optional libraries installs no Messenger.
+        if (interface_exists(MessageBusInterface::class)) {
+            $container->extension('framework', ['messenger' => [
                 'transports' => ['async' => 'in-memory://'],
                 'routing' => [WorkMessage::class => 'async'],
-            ],
-        ]);
-        $container->extension('msstc4symfony_profiling', ['messages' => [WorkMessage::class]]);
-        $container->services()->set(WorkHandler::class)->autowire()->autoconfigure();
+            ]]);
+            $container->extension('msstc4symfony_profiling', ['messages' => [WorkMessage::class]]);
+            $container->services()->set(WorkHandler::class)->autowire()->autoconfigure();
+        }
         $container->services()->set(CollectingHandler::class)->public();
         $container->extension('monolog', ['handlers' => [
             'main' => ['type' => 'test'],
