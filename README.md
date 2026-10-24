@@ -13,6 +13,8 @@ span share its `span_id`, its `parent_span_id` points at the span or unit of wor
 | Bundle | PHP  | Symfony  | profiling-bundle | tracing-bundle |
 |--------|------|----------|------------------|----------------|
 | 1.0    | 8.2+ | 7.4, 8.x | ^2.1             | ^2.0           |
+| 1.1    | 8.2+ | 7.4, 8.x | ^2.1             | ^2.0           |
+| 1.2    | 8.2+ | 7.4, 8.x | ^2.2             | ^2.0           |
 
 Symfony 8.x needs PHP 8.4; on PHP 8.2 and 8.3 Composer installs Symfony 7.4.
 
@@ -60,7 +62,7 @@ of the previous trace: its `trace_span_id` names a span of that trace.
 Left as they are:
 
 - spans a decision maker filtered out (profiling's `NullSpan`): they open no trace span;
-- detached spans (context `profiling_detached`, set by profiling-bundle 2.2 on its HTTP request spans): they end after
+- detached spans (context `DetachedSpanFactoryInterface::DETACHED` of profiling-bundle 2.2, set on its HTTP request spans): they end after
   the spans opened meanwhile, so the request runs in the trace span around it;
 - unit-of-work spans, by message prefix: `request `, `cli command ` and `message ` of profiling-bundle, which
   tracing-bundle already gives their own span — and the command and message spans open before tracing-bundle

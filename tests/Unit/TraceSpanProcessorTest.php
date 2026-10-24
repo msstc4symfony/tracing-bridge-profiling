@@ -284,17 +284,18 @@ final class TraceSpanProcessorTest extends TestCase
 
         $span = $this->factory($holder)->createDetachedSpan('http GET api.example.com');
 
+        self::assertNotInstanceOf(TracedSpan::class, $span);
         self::assertArrayNotHasKey(TraceSpanKeys::SPAN_ID, $span->getContext());
         self::assertSame($outer, $holder->current());
     }
 
     #[DataProvider('notDetachedMarkers')]
-    public function testOnlyATrueMarkerDetachesASpan(mixed $marker): void
+    public function testOnlyATrueMarkerDetachesASpan(bool|int|string $marker): void
     {
         $holder = new InMemoryTraceHolder();
         $outer = $holder->current();
 
-        $context = array_map(static fn (): mixed => $marker, DetachedSpanFactoryInterface::DETACHED);
+        $context = array_map(static fn (): bool|int|string => $marker, DetachedSpanFactoryInterface::DETACHED);
         $span = $this->processor($holder)->process(new Span('sql select', $context));
 
         self::assertInstanceOf(TracedSpan::class, $span);
