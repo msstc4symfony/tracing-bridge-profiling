@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\TracingBridgeProfiling\Infrastructure\Tracing;
 
+use Msstc4Symfony\ProfilingBundle\Application\DetachedSpanFactoryInterface;
 use Msstc4Symfony\ProfilingBundle\Application\Processor\CreateSpan\CreateSpanProcessorInterface;
 use Msstc4Symfony\ProfilingBundle\Application\Span\SpanInterface;
 use Msstc4Symfony\TracingBundle\Application\Port\TraceContextHolderInterface;
@@ -23,9 +24,6 @@ use WeakMap;
  */
 final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInterface
 {
-    // DetachedSpanFactoryInterface::DETACHED of profiling-bundle 2.2, read by key so that 2.1 needs no upgrade.
-    private const DETACHED_KEY = 'profiling_detached';
-
     /** @var WeakMap<TraceContext, TraceContext> the trace around each open span this processor opened */
     private WeakMap $open;
 
@@ -101,7 +99,14 @@ final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInt
      */
     private function isDetached(SpanInterface $span): bool
     {
-        return ($span->getContext()[self::DETACHED_KEY] ?? false) === true;
+        $context = $span->getContext();
+        foreach (DetachedSpanFactoryInterface::DETACHED as $key => $value) {
+            if (($context[$key] ?? null) !== $value) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function isUnitSpan(string $message): bool

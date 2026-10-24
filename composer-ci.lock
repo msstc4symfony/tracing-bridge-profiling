@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e3a3387add1144add799c520d295e601",
+    "content-hash": "a153d7babb268cec29e2762806a5eb51",
     "packages": [
         {
             "name": "monolog/monolog",
@@ -113,16 +113,16 @@
         },
         {
             "name": "msstc4symfony/profiling-bundle",
-            "version": "v2.1.0",
+            "version": "v2.2.0",
             "source": {
                 "type": "git",
-                "url": "git@github.com:msstc4symfony/profiling-bundle.git",
-                "reference": "6dd9834ef8be06dd965e571723b4bbd87edb976b"
+                "url": "https://github.com/msstc4symfony/profiling-bundle.git",
+                "reference": "dc4755fb51bd68d3775f3134faf4c639cfc076ee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/msstc4symfony/profiling-bundle/zipball/6dd9834ef8be06dd965e571723b4bbd87edb976b",
-                "reference": "6dd9834ef8be06dd965e571723b4bbd87edb976b",
+                "url": "https://api.github.com/repos/msstc4symfony/profiling-bundle/zipball/dc4755fb51bd68d3775f3134faf4c639cfc076ee",
+                "reference": "dc4755fb51bd68d3775f3134faf4c639cfc076ee",
                 "shasum": ""
             },
             "require": {
@@ -141,6 +141,10 @@
                 "symfony/service-contracts": "^3"
             },
             "conflict": {
+                "doctrine/dbal": "<3.7",
+                "doctrine/doctrine-bundle": "<2.13",
+                "guzzlehttp/guzzle": "<7.8",
+                "symfony/http-client": "<7.4",
                 "symfony/monolog-bundle": "<3.10",
                 "symfony/symfony": "*"
             },
@@ -155,7 +159,12 @@
                 "roave/security-advisories": "dev-latest"
             },
             "suggest": {
+                "doctrine/dbal": "To profile DBAL queries (auto_spans.dbal)",
+                "doctrine/doctrine-bundle": "To register the DBAL query spans middleware on its connections (auto_spans.dbal)",
+                "guzzlehttp/guzzle": "To profile Guzzle requests (auto_spans.guzzle)",
                 "msstc4symfony/metrics-bridge-profiling": "To export span durations as Prometheus metrics",
+                "msstc4symfony/sql-labeller": "Needed by auto_spans.dbal for the statement type and table (register its vcs repository, see README)",
+                "symfony/http-client": "To profile Symfony HttpClient requests (auto_spans.http_client)",
                 "symfony/messenger": "To profile consumed messages (messages option)",
                 "symfony/monolog-bundle": "To write finished spans to the \"profiling\" log channel"
             },
@@ -191,7 +200,10 @@
                 "profiling",
                 "symfony"
             ],
-            "time": "2026-10-22T09:40:46+00:00"
+            "support": {
+                "source": "https://github.com/msstc4symfony/profiling-bundle/tree/v2.2.0"
+            },
+            "time": "2026-10-23T07:34:39+00:00"
         },
         {
             "name": "msstc4symfony/tracing-bundle",

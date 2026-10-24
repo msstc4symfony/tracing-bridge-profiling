@@ -23,9 +23,9 @@
 - **Изменения контекста внутри span отбрасываются** при его закрытии, если это контекст моста. Общий держатель не
   годится для Fiber/async, как и сам tracing-bundle.
 - **Span'ы нигде не экспортируются**: дерево восстанавливается по `span_id`/`parent_span_id` в логах.
-
-- **Ключ `profiling_detached` — строкой** (как `DetachedSpanFactoryInterface::DETACHED` profiling-bundle 2.2): мост
-  работает с profiling ^2.1 без апгрейда; при смене ключа в profiling связь оборвётся молча — сверять при его мажорах.
+- **Маркер detached — константа `DetachedSpanFactoryInterface::DETACHED`** (с v1.2.0, 2026-10-24 UTC; раньше ключ
+  `profiling_detached` читался строкой ради profiling ^2.1). Мост требует profiling ^2.2; все пары ключ/значение
+  константы должны совпасть строго (`true`, не `1`/`'true'`).
 
 ## Семейство (Symfony, CI)
 

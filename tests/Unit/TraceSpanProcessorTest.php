@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\TracingBridgeProfiling\Test\Unit;
 
 use Msstc4Symfony\ProfilingBundle\Application\Assembler\SpanAssembler;
+use Msstc4Symfony\ProfilingBundle\Application\DetachedSpanFactoryInterface;
 use Msstc4Symfony\ProfilingBundle\Application\Processor\CreateSpan\CreateSpanProcessorInterface;
 use Msstc4Symfony\ProfilingBundle\Application\ProfilingFactory;
 use Msstc4Symfony\ProfilingBundle\Application\Span\NullSpan;
@@ -270,9 +271,20 @@ final class TraceSpanProcessorTest extends TestCase
     {
         $holder = new InMemoryTraceHolder();
         $outer = $holder->current();
-        $detached = new Span('http GET api.example.com', ['profiling_detached' => true]);
+        $detached = new Span('http GET api.example.com', DetachedSpanFactoryInterface::DETACHED);
 
         self::assertSame($detached, $this->processor($holder)->process($detached));
+        self::assertSame($outer, $holder->current());
+    }
+
+    public function testASpanOfTheDetachedFactoryOpensNoTraceSpan(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $outer = $holder->current();
+
+        $span = $this->factory($holder)->createDetachedSpan('http GET api.example.com');
+
+        self::assertArrayNotHasKey(TraceSpanKeys::SPAN_ID, $span->getContext());
         self::assertSame($outer, $holder->current());
     }
 
@@ -282,7 +294,8 @@ final class TraceSpanProcessorTest extends TestCase
         $holder = new InMemoryTraceHolder();
         $outer = $holder->current();
 
-        $span = $this->processor($holder)->process(new Span('sql select', ['profiling_detached' => $marker]));
+        $context = array_map(static fn (): mixed => $marker, DetachedSpanFactoryInterface::DETACHED);
+        $span = $this->processor($holder)->process(new Span('sql select', $context));
 
         self::assertInstanceOf(TracedSpan::class, $span);
         self::assertNotSame($outer, $holder->current());

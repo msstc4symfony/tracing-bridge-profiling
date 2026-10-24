@@ -4,6 +4,13 @@ All notable changes to this bundle are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning](https://semver.org/); dates are UTC.
 
+## [1.2.0] - 2026-10-24
+
+### Changed
+
+- Requires profiling-bundle ^2.2: a detached span is recognised by `DetachedSpanFactoryInterface::DETACHED` instead of
+  the `profiling_detached` key spelled out in the bridge.
+
 ## [1.1.0] - 2026-10-22
 
 ### Added
@@ -20,5 +27,6 @@ All notable changes to this bundle are documented here. The format follows
   `request `, `cli command `, `message `, plus `action ` when tracing-bridge-logic is registered, plus
   `extra_unit_span_prefixes`. Needs profiling-bundle ^2.1 (`EndableAtInterface`).
 
+[1.2.0]: https://github.com/msstc4symfony/tracing-bridge-profiling/releases/tag/v1.2.0
 [1.1.0]: https://github.com/msstc4symfony/tracing-bridge-profiling/releases/tag/v1.1.0
 [1.0.0]: https://github.com/msstc4symfony/tracing-bridge-profiling/releases/tag/v1.0.0
