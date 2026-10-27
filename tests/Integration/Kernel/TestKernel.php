@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\TracingBridgeProfiling\Test\Integration\Kernel;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Msstc4Symfony\ProfilingBundle\ProfilingBundle;
 use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\CollectingHandler;
 use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\WorkHandler;
@@ -15,8 +19,12 @@ use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Messenger\MessageBusInterface;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\inline_service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 final class TestKernel extends Kernel
 {
@@ -75,7 +83,16 @@ final class TestKernel extends Kernel
             $container->extension('msstc4symfony_profiling', ['messages' => [WorkMessage::class]]);
             $container->services()->set(WorkHandler::class)->autowire()->autoconfigure();
         }
-        $container->services()->set(CollectingHandler::class)->public();
+        $services = $container->services();
+        $services->set('test.mock_response', MockResponse::class)->public()->args(['{}']);
+        $container->extension('framework', ['http_client' => ['mock_response_factory' => 'test.mock_response']]);
+        $services->alias('test.http_client', 'http_client')->public();
+        $services->set('test.guzzle_handler', MockHandler::class)->public()->args([[inline_service(Response::class)]]);
+        $services->set('test.guzzle', Client::class)->public()->args([[
+            'handler' => inline_service(HandlerStack::class)->factory(HandlerStack::create(...))->args([service('test.guzzle_handler')]),
+        ]]);
+        $container->extension('msstc4symfony_profiling', ['auto_spans' => ['http_client' => true, 'guzzle' => true]]);
+        $services->set(CollectingHandler::class)->public();
         $container->extension('monolog', ['handlers' => [
             'main' => ['type' => 'test'],
             'collecting' => ['type' => 'service', 'id' => CollectingHandler::class],

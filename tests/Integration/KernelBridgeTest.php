@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\TracingBridgeProfiling\Test\Integration;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
 use Monolog\Handler\TestHandler;
 use Monolog\LogRecord;
 use Msstc4Symfony\ProfilingBundle\Application\ProfilingFactoryInterface;
@@ -13,6 +15,8 @@ use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\ExceptionHandlerSnapshot;
 use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\WorkMessage;
 use Msstc4Symfony\TracingBridgeProfiling\Test\Integration\Kernel\TestKernel;
 use Msstc4Symfony\TracingBundle\Application\Port\TraceContextHolderInterface;
+use Msstc4Symfony\TracingBundle\Domain\ValueObject\TraceContext;
+use Msstc4Symfony\TracingBundle\Domain\ValueObject\TraceParent;
 use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +26,9 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[CoversNothing]
 final class KernelBridgeTest extends TestCase
@@ -95,6 +101,38 @@ final class KernelBridgeTest extends TestCase
         self::assertSame($inside->traceParent->spanId, $profiled['context']['trace_span_id'] ?? null);
         self::assertSame($unit->traceParent->spanId, $profiled['context']['trace_parent_span_id'] ?? null);
         self::assertSame([], $this->bundleDeprecations);
+    }
+
+    public function testAnHttpClientRequestSendsTheIdOfItsClientSpan(): void
+    {
+        $unit = $this->trace()->current();
+        $client = $this->container()->get('test.http_client');
+        self::assertInstanceOf(HttpClientInterface::class, $client);
+
+        $client->request('GET', 'https://example.com/orders')->getContent();
+
+        $mock = $this->container()->get('test.mock_response');
+        self::assertInstanceOf(MockResponse::class, $mock);
+        $headers = $mock->getRequestOptions()['normalized_headers'] ?? null;
+        self::assertIsArray($headers);
+        $lines = $headers['traceparent'] ?? null;
+        self::assertIsArray($lines);
+        $line = $lines[0] ?? null;
+        self::assertIsString($line);
+        $this->assertTheRequestNamesItsClientSpan($unit, substr($line, strlen('traceparent: ')));
+    }
+
+    public function testAGuzzleRequestSendsTheIdOfItsClientSpan(): void
+    {
+        $unit = $this->trace()->current();
+        $client = $this->container()->get('test.guzzle');
+        self::assertInstanceOf(Client::class, $client);
+
+        $client->request('GET', 'https://example.com/orders');
+
+        $handler = $this->container()->get('test.guzzle_handler');
+        self::assertInstanceOf(MockHandler::class, $handler);
+        $this->assertTheRequestNamesItsClientSpan($unit, $handler->getLastRequest()?->getHeaderLine('traceparent'));
     }
 
     public function testAUnitOfWorkSpanKeepsTheUnitsTrace(): void
@@ -203,6 +241,20 @@ final class KernelBridgeTest extends TestCase
         }
 
         return $records;
+    }
+
+    private function assertTheRequestNamesItsClientSpan(TraceContext $unit, ?string $traceparent): void
+    {
+        $sent = TraceParent::fromHeader($traceparent ?? '');
+        self::assertInstanceOf(TraceParent::class, $sent);
+        $profiled = $this->records()['profiling']['http GET example.com'] ?? null;
+        self::assertIsArray($profiled);
+
+        self::assertSame($unit->traceParent->traceId, $sent->traceId);
+        self::assertNotSame($unit->traceParent->spanId, $sent->spanId);
+        self::assertSame($sent->spanId, $profiled['context']['trace_span_id'] ?? null);
+        self::assertSame($unit->traceParent->spanId, $profiled['context']['trace_parent_span_id'] ?? null);
+        self::assertSame($unit, $this->trace()->current());
     }
 
     private function trace(): TraceContextHolderInterface

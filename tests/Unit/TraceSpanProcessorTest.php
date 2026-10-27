@@ -14,6 +14,7 @@ use Msstc4Symfony\ProfilingBundle\Application\Span\SpanInterface;
 use Msstc4Symfony\TracingBridgeProfiling\Infrastructure\Tracing\TracedSpan;
 use Msstc4Symfony\TracingBridgeProfiling\Infrastructure\Tracing\TraceSpanKeys;
 use Msstc4Symfony\TracingBridgeProfiling\Infrastructure\Tracing\TraceSpanProcessor;
+use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\InMemoryReservation;
 use Msstc4Symfony\TracingBridgeProfiling\Test\Fixtures\InMemoryTraceHolder;
 use Msstc4Symfony\TracingBundle\Domain\ValueObject\TraceContext;
 use Override;
@@ -289,6 +290,110 @@ final class TraceSpanProcessorTest extends TestCase
         self::assertSame($outer, $holder->current());
     }
 
+    public function testAnOutgoingRequestSpanCarriesTheSpanItReservedForTheRequest(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $outer = $holder->current();
+        $reservation = new InMemoryReservation($holder);
+
+        $span = $this->factory($holder, $reservation)
+            ->createDetachedSpan('http GET api.example.com', DetachedSpanFactoryInterface::OUTGOING_REQUEST)
+        ;
+
+        $reserved = $reservation->reserved();
+        self::assertInstanceOf(TraceContext::class, $reserved);
+        self::assertSame($outer->traceParent->spanId, $reserved->parentSpanId);
+        self::assertSame(
+            [TraceSpanKeys::SPAN_ID => $reserved->traceParent->spanId, TraceSpanKeys::PARENT_SPAN_ID => $outer->traceParent->spanId],
+            array_intersect_key($span->getContext(), [TraceSpanKeys::SPAN_ID => true, TraceSpanKeys::PARENT_SPAN_ID => true]),
+        );
+        self::assertSame($outer, $holder->current());
+
+        $span->end();
+        self::assertSame($outer->traceParent->spanId, $holder->current()->traceParent->spanId, 'ending the span leaves the trace alone');
+    }
+
+    public function testADetachedSpanOfOtherWorkReservesNothing(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+
+        $span = $this->factory($holder, $reservation)->createDetachedSpan('render report');
+
+        self::assertNull($reservation->reserved());
+        self::assertArrayNotHasKey(TraceSpanKeys::SPAN_ID, $span->getContext());
+    }
+
+    public function testAnOutgoingRequestMarkerOnAStackedSpanReservesNothing(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+
+        $outer = $holder->current();
+
+        $span = $this->processor($holder, $reservation)
+            ->process(new Span('http GET api.example.com', DetachedSpanFactoryInterface::OUTGOING_REQUEST))
+        ;
+
+        self::assertNull($reservation->reserved());
+        self::assertInstanceOf(TracedSpan::class, $span);
+        self::assertNotSame($outer, $holder->current());
+    }
+
+    public function testAnOutgoingRequestInsideASpanIsAChildOfThatSpan(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+        $factory = $this->factory($holder, $reservation);
+        $factory->createSpan('import');
+
+        $import = $holder->current();
+
+        $request = $factory->createDetachedSpan('http GET api.example.com', DetachedSpanFactoryInterface::OUTGOING_REQUEST);
+
+        self::assertSame($import->traceParent->spanId, $request->getContext()[TraceSpanKeys::PARENT_SPAN_ID] ?? null);
+        self::assertSame($import, $holder->current());
+    }
+
+    public function testAnOutgoingRequestAfterANestedUnitPutBackAnEndedSpanIsAChildOfTheOpenOne(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+        $processor = $this->processor($holder, $reservation);
+        $unit = $holder->current();
+        $span = $processor->process(new Span('import'));
+        $inSpan = $holder->current();
+        $holder->replace($inSpan->withChildSpan());
+        $span->end();
+        $holder->replace($inSpan);
+
+        $request = $processor->process(new Span('http GET api.example.com', [
+            ...DetachedSpanFactoryInterface::DETACHED,
+            ...DetachedSpanFactoryInterface::OUTGOING_REQUEST,
+        ]));
+
+        self::assertSame($unit->traceParent->spanId, $request->getContext()[TraceSpanKeys::PARENT_SPAN_ID] ?? null);
+        self::assertSame($unit, $holder->current());
+    }
+
+    public function testAnUnrecordedOutgoingRequestReservesNothing(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+
+        $this->processor($holder, $reservation)->process(new NullSpan('http GET api.example.com', [...DetachedSpanFactoryInterface::DETACHED, ...DetachedSpanFactoryInterface::OUTGOING_REQUEST]));
+
+        self::assertNull($reservation->reserved());
+    }
+
+    public function testWithoutAReservationAnOutgoingRequestSpanStaysAsItIs(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $detached = new Span('http GET api.example.com', [...DetachedSpanFactoryInterface::DETACHED, ...DetachedSpanFactoryInterface::OUTGOING_REQUEST]);
+
+        self::assertSame($detached, $this->processor($holder)->process($detached));
+    }
+
     #[DataProvider('notDetachedMarkers')]
     public function testOnlyATrueMarkerDetachesASpan(bool|int|string $marker): void
     {
@@ -366,13 +471,13 @@ final class TraceSpanProcessorTest extends TestCase
         self::assertSame($inside, $holder->current());
     }
 
-    private function processor(InMemoryTraceHolder $holder): TraceSpanProcessor
+    private function processor(InMemoryTraceHolder $holder, ?InMemoryReservation $reservation = null): TraceSpanProcessor
     {
-        return new TraceSpanProcessor($holder, ['request ', 'cli command ', 'message ', 'action ']);
+        return new TraceSpanProcessor($holder, ['request ', 'cli command ', 'message ', 'action '], $reservation);
     }
 
-    private function factory(InMemoryTraceHolder $holder): ProfilingFactory
+    private function factory(InMemoryTraceHolder $holder, ?InMemoryReservation $reservation = null): ProfilingFactory
     {
-        return new ProfilingFactory([new SpanAssembler([])], [$this->processor($holder)], [], new NullLogger());
+        return new ProfilingFactory([new SpanAssembler([])], [$this->processor($holder, $reservation)], [], new NullLogger());
     }
 }
