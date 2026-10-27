@@ -11,16 +11,17 @@ use Override;
 
 final class InMemoryReservation implements OutgoingSpanReservationInterface
 {
+    public int $resets = 0;
+
     private ?TraceContext $reserved = null;
+
+    private ?TraceContext $reservedFrom = null;
 
     public function __construct(
         private readonly TraceContextHolderInterface $holder,
     ) {
     }
 
-    /**
-     * The reservation not taken yet. Unlike tracing-bundle's, take() here does not check the trace.
-     */
     public function reserved(): ?TraceContext
     {
         return $this->reserved;
@@ -29,14 +30,18 @@ final class InMemoryReservation implements OutgoingSpanReservationInterface
     #[Override]
     public function reserve(): TraceContext
     {
-        return $this->reserved = $this->holder->current()->withChildSpan();
+        $this->reservedFrom = $this->holder->current();
+
+        return $this->reserved = $this->reservedFrom->withChildSpan();
     }
 
     #[Override]
     public function take(): ?TraceContext
     {
-        $reserved = $this->reserved;
+        $reserved = $this->reservedFrom === $this->holder->current() ? $this->reserved : null;
         $this->reserved = null;
+
+        $this->reservedFrom = null;
 
         return $reserved;
     }
@@ -44,6 +49,8 @@ final class InMemoryReservation implements OutgoingSpanReservationInterface
     #[Override]
     public function reset(): void
     {
+        $this->resets++;
         $this->reserved = null;
+        $this->reservedFrom = null;
     }
 }

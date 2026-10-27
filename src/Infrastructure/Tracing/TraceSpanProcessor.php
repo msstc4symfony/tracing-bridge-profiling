@@ -55,8 +55,16 @@ final class TraceSpanProcessor implements CreateSpanProcessorInterface, ResetInt
 
         // A detached span ends after spans opened meanwhile: as the current trace span it would stay over them.
         if ($this->carries($span, DetachedSpanFactoryInterface::DETACHED)) {
-            if ($this->reservation instanceof OutgoingSpanReservationInterface && $this->isOutgoingRequest($span)) {
-                return new TracedSpan($span, $this->reserve($this->reservation));
+            $reservation = $this->reservation;
+            if ($reservation instanceof OutgoingSpanReservationInterface && $this->isOutgoingRequest($span)) {
+                $reserved = $this->reserve($reservation);
+                // A request that never passed tracing-bundle's integrations leaves the reservation behind; a request
+                // takes its own synchronously, so a slot still full when one ends holds no request's reservation.
+                $span->addEndHandler(static function () use ($reservation): void {
+                    $reservation->reset();
+                });
+
+                return new TracedSpan($span, $reserved);
             }
 
             return $span;

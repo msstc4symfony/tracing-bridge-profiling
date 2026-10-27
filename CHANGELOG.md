@@ -10,8 +10,8 @@ All notable changes to this bundle are documented here. The format follows
 
 - The HTTP request span of profiling-bundle 2.3 (`DetachedSpanFactoryInterface::OUTGOING_REQUEST`) reserves a child
   span of the current trace through tracing-bundle 2.4's `OutgoingSpanReservationInterface`: its record carries
-  `trace_span_id` / `trace_parent_span_id`, and the request's `traceparent` names it. Other detached spans are left as
-  they are.
+  `trace_span_id` / `trace_parent_span_id`, and the request's `traceparent` names it; the span's end drops a
+  reservation no request took. Other detached spans are left as they are.
 
 ### Changed
 

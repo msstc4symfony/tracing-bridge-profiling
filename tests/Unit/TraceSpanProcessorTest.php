@@ -374,6 +374,47 @@ final class TraceSpanProcessorTest extends TestCase
 
         self::assertSame($unit->traceParent->spanId, $request->getContext()[TraceSpanKeys::PARENT_SPAN_ID] ?? null);
         self::assertSame($unit, $holder->current());
+        self::assertSame($reservation->reserved(), $reservation->take(), 'tracing-bundle takes it from the trace put back');
+    }
+
+    public function testAnOutgoingRequestPutBackUnderTwoEndedSpansIsAChildOfTheUnit(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+        $processor = $this->processor($holder, $reservation);
+        $unit = $holder->current();
+        $outer = $processor->process(new Span('import'));
+        $inOuter = $holder->current();
+        $inner = $processor->process(new Span('sql select'));
+        $inInner = $holder->current();
+        $holder->replace($inInner->withChildSpan());
+        $inner->end();
+        $outer->end();
+        $holder->replace($inInner);
+
+        $request = $processor->process(new Span('http GET api.example.com', [
+            ...DetachedSpanFactoryInterface::DETACHED,
+            ...DetachedSpanFactoryInterface::OUTGOING_REQUEST,
+        ]));
+
+        self::assertNotSame($inOuter, $holder->current());
+        self::assertSame($unit->traceParent->spanId, $request->getContext()[TraceSpanKeys::PARENT_SPAN_ID] ?? null);
+    }
+
+    public function testTheEndOfAnOutgoingRequestDropsAReservationLeftBehind(): void
+    {
+        $holder = new InMemoryTraceHolder();
+        $reservation = new InMemoryReservation($holder);
+
+        $span = $this->factory($holder, $reservation)
+            ->createDetachedSpan('http GET api.example.com', DetachedSpanFactoryInterface::OUTGOING_REQUEST)
+        ;
+        self::assertNotNull($reservation->reserved());
+
+        $span->end();
+
+        self::assertNull($reservation->reserved());
+        self::assertSame(1, $reservation->resets);
     }
 
     public function testAnUnrecordedOutgoingRequestReservesNothing(): void

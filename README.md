@@ -68,8 +68,8 @@ Left as they are:
   2.3 (`DetachedSpanFactoryInterface::OUTGOING_REQUEST`) are the exception: each reserves a child span through
   tracing-bundle 2.4's `OutgoingSpanReservationInterface`, its record carries that span's `trace_span_id` and
   `trace_parent_span_id`, and the request sends it in `traceparent` — the receiver is a child of the client span.
-  The trace around the request stays current. Profile and trace the same HTTP clients: a request profiled but not
-  traced leaves its reservation to the next traced request of the same trace;
+  The trace around the request stays current; a reservation no request took (a client profiled but not traced) is
+  dropped when the request's span ends;
 - unit-of-work spans, by message prefix: `request `, `cli command ` and `message ` of profiling-bundle, which
   tracing-bundle already gives their own span — and the command and message spans open before tracing-bundle
   switches to the unit's trace; `action ` of [profiling-bridge-logic](https://github.com/msstc4symfony/profiling-bridge-logic)
