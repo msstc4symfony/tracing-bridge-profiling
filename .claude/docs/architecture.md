@@ -38,3 +38,13 @@
   (`CreateSpanProcessorInterface`, `SpanInterface`, `EndableAtInterface`, `DetachedSpanFactoryInterface::DETACHED`).
   Сервис приватный, id = FQCN, `@internal`.
 - deptrac: код в Infrastructure и DependencyInjection; BundleRoot → DependencyInjection, от Infrastructure не зависит.
+
+## Outgoing request spans (1.3.0, 2026-10-27 UTC)
+
+- A recorded detached span with profiling 2.3's `OUTGOING_REQUEST` → `TraceSpanProcessor::reserve()`: first puts the
+  holder back on `firstOpen()` (a nested unit may have restored an ended span's trace), then
+  `OutgoingSpanReservationInterface::reserve()` (tracing-bundle 2.4) → `TracedSpan($span, $reserved)`; holder unchanged.
+  tracing-bundle's HTTP decorators (inside profiling's: −15 vs −25; Guzzle push vs unshift) `take()` it for `traceparent`.
+- Needs profiling ^2.3.1: 2.3.0 opened the HttpClient span after `inner->request()`, so the reservation came too late
+  and leaked to the next request. A reservation no request took is dropped by an end handler of the HTTP span (`reset()`).
+- Kernel tests use `mock_response_factory` (`test.mock_response`) and a Guzzle `MockHandler` service.
